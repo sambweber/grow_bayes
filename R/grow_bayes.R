@@ -6,10 +6,10 @@ growth_model = function(model = c('VB','logistic','Gompertz','Richards','cessati
   
   model <- match.arg(model)
   f = switch(model,
-             Gompertz  = "Linf[group[i]] * pow(L0[group[i]]/Linf[group[i]],exp(-exp(1) * k[group[i]] * age[i]))",
-             VB =,logistic =, Richards  = "Linf[group[i]] * pow(1+(pow((L0[group[i]]/Linf[group[i]]),1-delta[group[i]])-1) * exp(-k[group[i]] * age[i] / pow(delta[group[i]],delta[group[i]]/(1-delta[group[i]]))),1/(1-delta[group[i]]))",
-             cessation = "L0[group[i]] + rmax[group[i]] * (((log(exp(-k[group[i]] * t50[group[i]]) + 1) - log(exp(k[group[i]]*(age[i]-t50[group[i]]))+1))/k[group[i]]) + age[i])",
-             VBlogK    = "Linf[group[i]] * (1 - exp(-k2[group[i]]*(age[i] - t0[group[i]])) * pow((1+exp(-beta[group[i]]*(age[i]-t0[group[i]]-alpha[group[i]])))/(1+exp(beta[group[i]]*alpha[group[i]])),(k1[group[i]]-k2[group[i]])/beta[group[i]]))"
+      Gompertz  = "Linf[group[i]] * pow(L0[group[i]]/Linf[group[i]],exp(-exp(1) * k[group[i]] * age[i]))",
+      VB =,logistic =, Richards  = "Linf[group[i]] * pow(1+(pow((L0[group[i]]/Linf[group[i]]),1-delta[group[i]])-1) * exp(-k[group[i]] * age[i] / pow(delta[group[i]],delta[group[i]]/(1-delta[group[i]]))),1/(1-delta[group[i]]))",
+      cessation = "L0[group[i]] + rmax[group[i]] * (((log(exp(-k[group[i]] * t50[group[i]]) + 1) - log(exp(k[group[i]]*(age[i]-t50[group[i]]))+1))/k[group[i]]) + age[i])",
+      VBlogK    = "Linf[group[i]] * (1 - exp(-k2[group[i]]*(age[i] - t0[group[i]])) * pow((1+exp(-beta[group[i]]*(age[i]-t0[group[i]]-alpha[group[i]])))/(1+exp(beta[group[i]]*alpha[group[i]])),(k1[group[i]]-k2[group[i]])/beta[group[i]]))"
   )
   if(model=='VB')       f = gsub('delta\\[group\\[i\\]\\]','2/3',f)
   if(model=='logistic') f = gsub('delta\\[group\\[i\\]\\]','2',f)
@@ -122,7 +122,7 @@ grow_bayes = function(size,age,group=NULL,model,errors,mod.dir=NULL,
   cat(
     "model{
    for(i in 1:N){
-   Lt[i] <- ",growth_model(model),
+   Lt[i] <- ",f,
    "
    ",
    error_model(errors),
