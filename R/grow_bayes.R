@@ -1,3 +1,5 @@
+require('R2jags')
+
 # ------------------------------------------------------------------------------------
 # Growth model 
 # ------------------------------------------------------------------------------------
@@ -85,15 +87,10 @@ switch(model,
 # Fitting function
 # -------------------------------------------------------------------------------------
 
-# If supplying inits as a function, this should be capable of returning a vector containing
-# one value for each sex/group e.g. inits = function(G) list(k = runif(G,0,1))
-# Compare results using the unified parameterisations of the VB, logistic and 
-# Gompertz:
-# yhat = Linf * (Linf/L0) ^ exp(-2.71828 * k * t)
-# For VB and logistic, fix d at 2/3 or 2 respectively
+# 
 
 grow_bayes = function(size,age,group=NULL,model,errors,mod.dir=NULL,
-                      n.iter=25000,n.thin=20,n.burnin=5000,inits=NULL){
+                      n.iter=25000,n.thin=20,n.burnin=5000,inits=NULL,ncores=1){
   
   if(!is.null(group)){ 
     group = as.factor(group)
@@ -109,11 +106,28 @@ grow_bayes = function(size,age,group=NULL,model,errors,mod.dir=NULL,
   
   jags.data = list(length = data$size,age = data$age,group = data$group,N=length(data$size),G = length(unique(data$group)))
   
-  f = growth_model(model)
-  
   if(is.null(mod.dir)) mod.dir = tempdir()
   mod.dir = gsub('\\/$', '', mod.dir)
-  mod.file = paste0(mod.dir,"/grow_bayes.txt")
+  
+  if(length(model)>1){
+    plan(tweak(multisession,workers = ncores))
+    tibble(model = model) %>% 
+    mutate(jags.fit = furrr::future_map(model, ~fit_gm(jags.data,.x,errors,mod.dir,n.iter,n.thin,n.burnin,inits)))
+    plan(sequential)
+    } else {
+    fit_gm(jags.data,model,errors,mod.dir,n.iter,n.thin,n.burnin,inits)
+    }
+}
+                                   
+# ----------------------------------------------------------------------------------------------------------------------------------
+# Fit growth model - used internally by bayes_grow
+# ----------------------------------------------------------------------------------------------------------------------------------
+  
+fit_gm = function(data,model,errors,mod.dir,n.iter=25000,n.thin=20,n.burnin=5000,inits=NULL){                  
+  
+  f = growth_model(model)
+  
+  mod.file = paste0(mod.dir,"/grow_bayes_",model,".txt")
   if(file.exists(mod.file)) unlink(mod.file)
   
 # Write the model file
@@ -135,11 +149,14 @@ grow_bayes = function(size,age,group=NULL,model,errors,mod.dir=NULL,
 
    # Priors
    for(j in 1:G){
-   ",
-   gm_priors(model),
    "
-   }
-   ")
+   )
+  
+   gm_priors(model)
+   
+   cat("
+  }
+}")
   
 sink()
 
@@ -147,14 +164,13 @@ sink()
 params = all.vars(formula(paste('~',f)))
 params = subset(params,!params %in% c('i','group','age'))
 
-if(!is.null(inits)) inits = lapply(1:3,function(x) inits(jags.data$G))
+if(!is.null(inits)) inits = lapply(1:3,function(x) inits(data$G))
 
-out = jags(jags.data, inits=inits, params, model.file = mod.file, n.iter=n.iter,n.thin=n.thin,n.burnin=n.burnin,working.directory = mod.dir)
+out = jags(data, inits=inits, params, model.file = mod.file, n.iter=n.iter,n.thin=n.thin,n.burnin=n.burnin,working.directory = mod.dir)
 
 structure(out,class = c("rjags", "grow_bayes"))
-
 }
-
+                                   
 # ----------------------------------------------------------------------------------------------------------------------------------
 # Predict method
 # ----------------------------------------------------------------------------------------------------------------------------------
