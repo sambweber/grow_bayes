@@ -278,7 +278,7 @@ summary.grow_bayes =  function(jags.model){
 DIC = function(model){
   
   if(!inherits(model,'rjags')) stop("model should be an object of class rjags")
-  model$BUGSouput$DIC
+  model$BUGSoutput$DIC
   
 }
 
