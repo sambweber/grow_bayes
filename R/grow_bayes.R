@@ -120,7 +120,7 @@ grow_bayes = function(size,age,group=NULL,model,errors,mod.dir=NULL,
     
     if(ncores>1){
     fit = plan(tweak(multisession,workers = ncores))
-    cat('Fitting',length(models),'models in parallel.....')
+    cat('Fitting',length(model),'models in parallel.....')
     }
       
     tibble(model = model) %>% 
