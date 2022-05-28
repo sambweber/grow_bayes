@@ -289,7 +289,7 @@ DIC = function(model){
 MPSRF = function(model){
   
   if(!inherits(model,'rjags')) stop("model should be an object of class rjags")
-  coda::gelman.diag(as.mcmc(x))$mpsrf
+  coda::gelman.diag(as.mcmc(model))$mpsrf
 
 }
 
