@@ -272,7 +272,7 @@ summary.grow_bayes =  function(jags.model){
 # Deviance Information Criterion Method
 # ------------------------------------------------------------
 
-DIC.rjags = function(model){
+DIC = function(model){
   
   if(!inherits(model,'rjags')) stop("model should be an object of class rjags")
   model$BUGSouput$DIC
