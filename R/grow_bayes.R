@@ -299,6 +299,8 @@ MPSRF = function(model){
 
 RMSE = function(model,type = c('RMSE','SS')){
   
+  if(!inherits(model,'grow_bayes')) stop("model should be an object of class grow_bayes")
+  type = match.arg(type)
   data = model$model$data()
   data = data.frame(age=data$age,length=data$length,group=data$group)
   
