@@ -126,7 +126,7 @@ grow_bayes = function(size,age,group=NULL,model,errors,mod.dir=NULL,
     fit = tibble(model = model) %>% 
       mutate(jags.fit = furrr::future_map(model, ~fit_gm(jags.data,.x,errors,mod.dir,n.iter,n.thin,n.burnin,inits))) %>%
       mutate(DIC = map_dbl(jags.fit,DIC)) %>%
-      mutate(RMSE = map_dbl(jags.fit,RMSE)) %>%
+      #mutate(RMSE = map_dbl(jags.fit,RMSE)) %>%
       arrange(DIC) %>% mutate(model = forcats::fct_reorder(model,DIC))
     
     plan(sequential)
