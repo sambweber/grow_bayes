@@ -119,11 +119,11 @@ grow_bayes = function(size,age,group=NULL,model,errors,mod.dir=NULL,
   if(length(model)>1){
     
     if(ncores>1){
-    fit = plan(tweak(multisession,workers = ncores))
+    plan(tweak(multisession,workers = ncores))
     cat('Fitting',length(model),'models in parallel.....')
     }
       
-    tibble(model = model) %>% 
+    fit = tibble(model = model) %>% 
       mutate(jags.fit = furrr::future_map(model, ~fit_gm(jags.data,.x,errors,mod.dir,n.iter,n.thin,n.burnin,inits))) 
       #mutate(DIC = map_dbl(jags.fit,DIC)) %>%
       #mutate(RMSE = map_dbl(jags.fit,RMSE)) %>%
