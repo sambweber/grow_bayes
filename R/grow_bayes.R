@@ -336,3 +336,27 @@ fun2jags = function(fun){
 # Utility
 # -------------------------------------------------------------------------------------------------                                          
 pow = function(x,p) x^p                                   
+
+# -------------------------------------------------------------------------------------------------                                     
+# An implementation of the Farley decimal age correction algorithm
+# -------------------------------------------------------------------------------------------------                                      
+                                     
+decimal_age = function(x,method = 'Farley'){
+ 
+ incs = t(apply(x[,-ncol(x)],1,diff))
+ mu = colMeans(incs,na.rm=T)
+ 
+ get_edge = function(i){
+   d = diff(na.omit(i))
+   n = length(d)
+   age2first = 0.7486*d[1]^1.8709
+   mir = ifelse(n>1,min(1,d[n]/mu[n]),NA)
+   cbind(age2first,max(0,n-2),mir)  
+ }
+ 
+ t(apply(x,1,get_edge)) %>%
+ cbind(rowSums(.,na.rm=T)) %>%
+ data.frame() %>% 
+ setNames(c('first','zones','margin','decimal_age'))
+ 
+}
