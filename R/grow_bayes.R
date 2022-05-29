@@ -307,3 +307,27 @@ RMSE = function(model,type = c('RMSE','SS')){
   resids = data$length - predict(model,newdata = data,plot=F)$length
   switch(type,RMSE = sqrt(mean(resids^2)), SS = sum(resids^2))
 }
+                                     
+
+# -------------------------------------------------------------------------------------------------                                     
+# Growth model equations
+# -------------------------------------------------------------------------------------------------                                    
+                                     
+Richards = function(x,Linf,k,a,b){
+  Linf*(1 - a * exp(-k*x))^b
+}
+                                     
+# -------------------------------------------------------------------------------------------------                                     
+# Converting functions into BUGS language to run
+# -------------------------------------------------------------------------------------------------                                          
+
+fun2jags = function(fun){
+  
+  args = formalArgs(fun)
+  new  = paste0(args,ifelse(args=='x','[i]','[group[i]]'))
+  args = paste0('\\b',args,'\\b')
+  
+  stringi::stri_replace_all_regex(deparse(get(fun))[3], pattern = args, replacement = new, vectorize_all = FALSE) %>%
+  stringi::stri_trim()
+  
+}
