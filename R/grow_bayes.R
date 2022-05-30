@@ -317,6 +317,10 @@ Richards = function(x,Linf,k,a,b){
   Linf*(1 - a * exp(-k*x))^b
 }
                                      
+Richards.t0 = function(x,Linf,k,t0,b){
+  Linf*pow(1 - 1/b * exp(-k*(x-t0)),b)
+}
+                                     
 # -------------------------------------------------------------------------------------------------                                     
 # Converting functions into BUGS language to run
 # -------------------------------------------------------------------------------------------------                                          
