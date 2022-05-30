@@ -360,3 +360,18 @@ decimal_age = function(x,method = 'Farley'){
  setNames(c('first','zones','margin','decimal_age'))
  
 }
+                                     
+                                     
+# ------------------------------------------------------------------------------------------
+# IAPE
+# ------------------------------------------------------------------------------------------
+                                     
+IAPE = function(x){
+  
+  x   = x[rowSums(!is.na(x))>1,]
+  mu  = rowMeans(x,na.rm=T)
+  xij = abs(x - mu)/mu
+  Xj  = rowMeans(xij,na.rm=T)
+  mean(Xj,na.rm=T) * 100
+  
+}
