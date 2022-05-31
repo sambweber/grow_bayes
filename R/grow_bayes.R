@@ -71,7 +71,7 @@ gm_priors = function(model=c('VB','logistic','Gompertz','Richards','cessation','
          VBlogK =, Richards_logK = 
            
            # Prior distributions based on those provided in Dortel REF for Indian Ocean  
-           {cat("
+           cat("
      Linf[j] ~ dunif(100,10000)
      k1[j]  ~ dgamma(2.78,4.74) 
      k2[j]  = k1[j] + kappa[j]
@@ -80,10 +80,6 @@ gm_priors = function(model=c('VB','logistic','Gompertz','Richards','cessation','
      alpha[j]  ~ dgamma(4,1.38)
      beta[j]   ~ dunif(0,30)
      ")
-         if(model=='Richards_logK'){
-           cat("d[j] ~ dgamma(0.001,0.001) # Must be >0
-      ")}
-}
          
 )
 }
