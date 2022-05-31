@@ -189,7 +189,7 @@ fit_gm = function(data,model,errors,mod.dir,n.iter=25000,n.thin=20,n.burnin=5000
   
   out = jags(data, inits=inits, params, model.file = mod.file, n.iter=n.iter,n.thin=n.thin,n.burnin=n.burnin,working.directory = mod.dir)
   
-  structure(out,class = c("grow_bayes","rjags))
+  structure(out,class = c("grow_bayes","rjags"))
 }
 
 # ----------------------------------------------------------------------------------------------------------------------------------
