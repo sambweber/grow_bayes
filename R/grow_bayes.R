@@ -14,8 +14,9 @@ growth_model = function(model = c('VB','logistic','Gompertz','Richards','cessati
              Gompertz  = "Linf[group[i]] * pow(L0[group[i]]/Linf[group[i]],exp(-exp(1) * k[group[i]] * age[i]))",
              VB =,logistic =, Richards  = "Linf[group[i]] * pow(1+(pow((L0[group[i]]/Linf[group[i]]),1-delta[group[i]])-1) * exp(-k[group[i]] * age[i] / pow(delta[group[i]],delta[group[i]]/(1-delta[group[i]]))),1/(1-delta[group[i]]))",
              cessation = "L0[group[i]] + rmax[group[i]] * (((log(exp(-k[group[i]] * t50[group[i]]) + 1) - log(exp(k[group[i]]*(age[i]-t50[group[i]]))+1))/k[group[i]]) + age[i])",
-             VBlogK    = "Linf[group[i]] * (1 - exp(-k2[group[i]]*(age[i] - t0[group[i]])) * pow((1+exp(-beta[group[i]]*(age[i]-t0[group[i]]-alpha[group[i]])))/(1+exp(beta[group[i]]*alpha[group[i]])),(k1[group[i]]-k2[group[i]])/beta[group[i]]))"
-  )
+             VBlogK    = "Linf[group[i]] * (1 - exp(-k2[group[i]]*(age[i] - t0[group[i]])) * pow((1+exp(-beta[group[i]]*(age[i]-t0[group[i]]-alpha[group[i]])))/(1+exp(beta[group[i]]*alpha[group[i]])),(k1[group[i]]-k2[group[i]])/beta[group[i]]))",
+             Richards.logK = fun2jags('Richards.logK')
+             )
   if(model=='VB')       f = gsub('delta\\[group\\[i\\]\\]','2/3',f)
   if(model=='logistic') f = gsub('delta\\[group\\[i\\]\\]','2',f)
   f
@@ -312,15 +313,26 @@ RMSE = function(model,type = c('RMSE','SS')){
 # -------------------------------------------------------------------------------------------------                                     
 # Growth model equations
 # -------------------------------------------------------------------------------------------------                                    
+
+# To make functions readable in BUGS format
+pow = function(x,p) x^p 
                                      
-Richards = function(x,Linf,k,a,b){
-  Linf*(1 - a * exp(-k*x))^b
+Richards = function(age,Linf,k,a,b){
+  Linf*pow(1 - a * exp(-k*age),b)
 }
                                      
-Richards.t0 = function(x,Linf,k,t0,b){
+Richards.t0 = function(age,Linf,k,t0,b){
   Linf*pow(1 - 1/b * exp(-k*(x-t0)),b)
 }
                                      
+VBlogK    = function(age,Linf,k1,k2,t0,a,b){                                  
+  Linf*(1 - exp(-k2*(age - t0)) * pow((1+exp(-b*(age-t0-a)))/(1+exp(b*a)),(k1-k2)/b))
+}
+                                     
+ Richards.logK    = function(age,Linf,k1,k2,t0,a,b,D){                                  
+  Linf*(1 - exp(-k2*(age - t0)) * pow(pow((1+1/D*exp(-b*(age-t0-a))),D)/(1+exp(b*a)),(k1-k2)/b))
+}
+  
 # -------------------------------------------------------------------------------------------------                                     
 # Converting functions into BUGS language to run
 # -------------------------------------------------------------------------------------------------                                          
@@ -328,18 +340,14 @@ Richards.t0 = function(x,Linf,k,t0,b){
 fun2jags = function(fun){
   
   args = formalArgs(fun)
-  new  = paste0(args,ifelse(args=='x','[i]','[group[i]]'))
+  new  = paste0(args,ifelse(args=='age','[i]','[group[i]]'))
   args = paste0('\\b',args,'\\b')
   
-  stringi::stri_replace_all_regex(deparse(get(fun))[3], pattern = args, replacement = new, vectorize_all = FALSE) %>%
-  stringi::stri_trim()
+  .f = deparse(get(fun))[-1] %>% subset(!.%in% c('{','}')) %>% stringi::stri_trim() %>% paste(collapse=' ')
+  stringi::stri_replace_all_regex(.f, pattern = args, replacement = new, vectorize_all = FALSE) 
   
 }
-                                     
-# -------------------------------------------------------------------------------------------------                                     
-# Utility
-# -------------------------------------------------------------------------------------------------                                          
-pow = function(x,p) x^p                                   
+                                                                      
 
 # -------------------------------------------------------------------------------------------------                                     
 # An implementation of the Farley decimal age correction algorithm
@@ -364,8 +372,7 @@ decimal_age = function(x,method = 'Farley'){
  setNames(c('first','zones','margin','decimal_age'))
  
 }
-                                     
-                                     
+                                                                          
 # ------------------------------------------------------------------------------------------
 # IAPE
 # ------------------------------------------------------------------------------------------
