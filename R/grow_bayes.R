@@ -7,7 +7,7 @@ require('coda')
 # Growth model 
 # ------------------------------------------------------------------------------------
 
-growth_model = function(model = c('VB','logistic','Gompertz','Richards','cessation','VBlogK')){
+growth_model = function(model = c('VB','logistic','Gompertz','Richards','cessation','VBlogK','Richards_logK')){
   
   model <- match.arg(model)
   f = switch(model,
@@ -15,7 +15,7 @@ growth_model = function(model = c('VB','logistic','Gompertz','Richards','cessati
              VB =,logistic =, Richards  = "Linf[group[i]] * pow(1+(pow((L0[group[i]]/Linf[group[i]]),1-delta[group[i]])-1) * exp(-k[group[i]] * age[i] / pow(delta[group[i]],delta[group[i]]/(1-delta[group[i]]))),1/(1-delta[group[i]]))",
              cessation = "L0[group[i]] + rmax[group[i]] * (((log(exp(-k[group[i]] * t50[group[i]]) + 1) - log(exp(k[group[i]]*(age[i]-t50[group[i]]))+1))/k[group[i]]) + age[i])",
              VBlogK    = "Linf[group[i]] * (1 - exp(-k2[group[i]]*(age[i] - t0[group[i]])) * pow((1+exp(-beta[group[i]]*(age[i]-t0[group[i]]-alpha[group[i]])))/(1+exp(beta[group[i]]*alpha[group[i]])),(k1[group[i]]-k2[group[i]])/beta[group[i]]))",
-             Richards.logK = fun2jags('Richards.logK')
+             Richards_logK = fun2jags('Richards.logK')
              )
   if(model=='VB')       f = gsub('delta\\[group\\[i\\]\\]','2/3',f)
   if(model=='logistic') f = gsub('delta\\[group\\[i\\]\\]','2',f)
@@ -41,8 +41,7 @@ error_model = function(model = c('normal','lognormal')){
 # ------------------------------------------------------------------------------------
 
 # Supply default priors for growth models
-
-gm_priors = function(model=c('VB','logistic','Gompertz','Richards','cessation','VBlogK')){
+gm_priors = function(model=c('VB','logistic','Gompertz','Richards','cessation','VBlogK','Richards_logK')){
   
   model <- match.arg(model)
   
@@ -69,7 +68,7 @@ gm_priors = function(model=c('VB','logistic','Gompertz','Richards','cessation','
       t50[j]  ~ dnorm(0,0.0001) I(0,)
       "),
          
-         VBlogK, Richards.logK    = 
+         VBlogK,Richards_logK    = 
            
            # Prior distributions based on those provided in Dortel REF for Indian Ocean  
            {cat("
@@ -81,21 +80,19 @@ gm_priors = function(model=c('VB','logistic','Gompertz','Richards','cessation','
      alpha[j]  ~ dgamma(4,1.38)
      beta[j]   ~ dunif(0,30)
      ")
-            if(model=='Richards.logK'){
-               cat("D[j] ~ dgamma(0.001,0.001) # Must be >0
+         if(model=='Richards_logK'){
+           cat("d[j] ~ dgamma(0.001,0.001) # Must be >0
       ")}
-           }
+}
          
-         
-  )
-  
+)
 }
 
 # -------------------------------------------------------------------------------------
 # grow_bayes: main fitting function
 # -------------------------------------------------------------------------------------
 
-# This is the principe function used for fitting growth curves. It can fit either single or multiple 
+# This is the principle function used for fitting growth curves. It can fit either single or multiple 
 # growth models, with the option of fitting in parallel to speed up processing times. If a single
 # model is specified the function will return the output of the JAGS run. If multiple models are 
 # specified the function will return a nested tibble containing a list of JAGS model ouputs and will 
@@ -144,7 +141,7 @@ grow_bayes = function(size,age,group=NULL,model,errors,mod.dir=NULL,
 }
 
 # ----------------------------------------------------------------------------------------------------------------------------------
-# Fit growth model - used internally by bayes_grow
+# Fit growth model - used internally by grow_bayes
 # ----------------------------------------------------------------------------------------------------------------------------------
 
 fit_gm = function(data,model,errors,mod.dir,n.iter=25000,n.thin=20,n.burnin=5000,inits=NULL){                  
@@ -192,7 +189,7 @@ fit_gm = function(data,model,errors,mod.dir,n.iter=25000,n.thin=20,n.burnin=5000
   
   out = jags(data, inits=inits, params, model.file = mod.file, n.iter=n.iter,n.thin=n.thin,n.burnin=n.burnin,working.directory = mod.dir)
   
-  structure(out,class = c("rjags", "grow_bayes"))
+  structure(out,class = c("grow_bayes","rjags))
 }
 
 # ----------------------------------------------------------------------------------------------------------------------------------
@@ -329,12 +326,12 @@ Richards.t0 = function(age,Linf,k,t0,b){
   Linf*pow(1 - 1/b * exp(-k*(x-t0)),b)
 }
                                      
-VBlogK    = function(age,Linf,k1,k2,t0,a,b){                                  
-  Linf*(1 - exp(-k2*(age - t0)) * pow((1+exp(-b*(age-t0-a)))/(1+exp(b*a)),(k1-k2)/b))
+VBlogK    = function(age,Linf,k1,k2,t0,alpha,beta){                                  
+  Linf*(1 - exp(-k2*(age - t0)) * pow((1+exp(-beta*(age-t0-alpha)))/(1+exp(beta*alpha)),(k1-k2)/beta))
 }
                                      
- Richards.logK    = function(age,Linf,k1,k2,t0,a,b,D){                                  
-  Linf*(1 - exp(-k2*(age - t0)) * pow(pow((1+1/D*exp(-b*(age-t0-a))),D)/(1+exp(b*a)),(k1-k2)/b))
+ Richards.logK    = function(age,Linf,k1,k2,t0,alpha,beta,d){                                  
+  Linf*(1 - exp(-k2*(age - t0)) * pow(pow((1+1/d*exp(-beta*(age-t0-alpha))),d)/(1+exp(beta*alpha)),(k1-k2)/beta))
 }
   
 # -------------------------------------------------------------------------------------------------                                     
@@ -356,6 +353,11 @@ fun2jags = function(fun){
 # -------------------------------------------------------------------------------------------------                                     
 # An implementation of the Farley decimal age correction algorithm
 # -------------------------------------------------------------------------------------------------                                      
+
+# x is a dataframe where each row is an individual and columns are measurements from the primordium to 
+# the start of each opaque zone. The first column is assumed to be the primordium and should be zero
+# for each individual. The last column is the measurement to the otolith edge and should have a value for each indidual.
+# Intermediate columns may have NAs where measurements are missing for younger individuals.
                                      
 decimal_age = function(x,method = 'Farley'){
  
