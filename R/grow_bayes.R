@@ -68,7 +68,7 @@ gm_priors = function(model=c('VB','logistic','Gompertz','Richards','cessation','
       t50[j]  ~ dnorm(0,0.0001) I(0,)
       "),
          
-         VBlogK,Richards_logK    = 
+         VBlogK =, Richards_logK = 
            
            # Prior distributions based on those provided in Dortel REF for Indian Ocean  
            {cat("
