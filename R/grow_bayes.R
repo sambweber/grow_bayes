@@ -320,7 +320,7 @@ Richards = function(age,Linf,k,a,b){
 }
                                      
 Richards.t0 = function(age,Linf,k,t0,b){
-  Linf*pow(1 - 1/b * exp(-k*(x-t0)),b)
+  Linf*pow(1 - 1/b * exp(-k*(age-t0)),b)
 }
                                      
 VBlogK    = function(age,Linf,k1,k2,t0,alpha,beta){                                  
