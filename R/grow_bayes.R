@@ -4,18 +4,19 @@ require('tidyverse')
 require('coda')
 
 # ------------------------------------------------------------------------------------
-# Growth model 
+# Growth model - used internally by grow_bayes to build the growth model
 # ------------------------------------------------------------------------------------
 
-growth_model = function(model = c('VB','logistic','Gompertz','Richards','cessation','VBlogK','Richards_logK')){
+# Returns the specified growth model equation with group indexing for fitting models with different parameters for subgroups.
+
+growth_model = function(model = c('VB','logistic','Gompertz','Richards','cessation','VBlogK')){
   
   model <- match.arg(model)
   f = switch(model,
              Gompertz  = "Linf[group[i]] * pow(L0[group[i]]/Linf[group[i]],exp(-exp(1) * k[group[i]] * age[i]))",
              VB =,logistic =, Richards  = "Linf[group[i]] * pow(1+(pow((L0[group[i]]/Linf[group[i]]),1-delta[group[i]])-1) * exp(-k[group[i]] * age[i] / pow(delta[group[i]],delta[group[i]]/(1-delta[group[i]]))),1/(1-delta[group[i]]))",
              cessation = "L0[group[i]] + rmax[group[i]] * (((log(exp(-k[group[i]] * t50[group[i]]) + 1) - log(exp(k[group[i]]*(age[i]-t50[group[i]]))+1))/k[group[i]]) + age[i])",
-             VBlogK    = "Linf[group[i]] * (1 - exp(-k2[group[i]]*(age[i] - t0[group[i]])) * pow((1+exp(-beta[group[i]]*(age[i]-t0[group[i]]-alpha[group[i]])))/(1+exp(beta[group[i]]*alpha[group[i]])),(k1[group[i]]-k2[group[i]])/beta[group[i]]))",
-             Richards_logK = fun2jags('Richards.logK')
+             VBlogK    = "Linf[group[i]] * (1 - exp(-k2[group[i]]*(age[i] - t0[group[i]])) * pow((1+exp(-beta[group[i]]*(age[i]-t0[group[i]]-alpha[group[i]])))/(1+exp(beta[group[i]]*alpha[group[i]])),(k1[group[i]]-k2[group[i]])/beta[group[i]]))"
              )
   if(model=='VB')       f = gsub('delta\\[group\\[i\\]\\]','2/3',f)
   if(model=='logistic') f = gsub('delta\\[group\\[i\\]\\]','2',f)
@@ -23,8 +24,10 @@ growth_model = function(model = c('VB','logistic','Gompertz','Richards','cessati
 }
 
 # ----------------------------------------------------------------------------------
-# Error model
+# Error model - used internally by grow_bayes to build the growth model
 # ----------------------------------------------------------------------------------
+
+# Returns the error model relating expecting length to observed length
 
 error_model = function(model = c('normal','lognormal')){
   model = match.arg(model)
@@ -37,11 +40,12 @@ error_model = function(model = c('normal','lognormal')){
 
 
 # ------------------------------------------------------------------------------------
-# Priors
+# Priors  - used internally by grow_bayes to build the growth model
 # ------------------------------------------------------------------------------------
 
-# Supply default priors for growth models
-gm_priors = function(model=c('VB','logistic','Gompertz','Richards','cessation','VBlogK','Richards_logK')){
+# Returns default priors for the parameters of the specific growth function in BUGS language
+
+gm_priors = function(model=c('VB','logistic','Gompertz','Richards','cessation','VBlogK')){
   
   model <- match.arg(model)
   
@@ -68,7 +72,7 @@ gm_priors = function(model=c('VB','logistic','Gompertz','Richards','cessation','
       t50[j]  ~ dnorm(0,0.0001) I(0,)
       "),
          
-         VBlogK =, Richards_logK = 
+         VBlogK =
            
            # Prior distributions based on those provided in Dortel REF for Indian Ocean  
            cat("
@@ -88,14 +92,26 @@ gm_priors = function(model=c('VB','logistic','Gompertz','Richards','cessation','
 # grow_bayes: main fitting function
 # -------------------------------------------------------------------------------------
 
-# This is the principle function used for fitting growth curves. It can fit either single or multiple 
-# growth models, with the option of fitting in parallel to speed up processing times. If a single
-# model is specified the function will return the output of the JAGS run. If multiple models are 
-# specified the function will return a nested tibble containing a list of JAGS model ouputs and will 
-# rank them based on Deviance Information Criterion or Root Mean Square Error.
+#' This is the principle function used for fitting growth curves. It can fit either single or multiple 
+#' growth models, with the option of fitting in parallel to speed up processing times. If a single
+#' model is specified the function will return the output of the JAGS run. If multiple models are 
+#' specified the function will return a nested tibble containing a list of JAGS model ouputs and will 
+#' rank them based on Deviance Information Criterion or Root Mean Square Error.
 
-grow_bayes = function(size,age,group=NULL,model,errors,mod.dir=NULL,
-                      n.iter=25000,n.thin=20,n.burnin=5000,inits=NULL,ncores=1){
+#' @params size,age Numeric vectors containing sizes and associated ages
+#' @params group Optional: a vector of group labels to be modelled using separate parameters. If not supplied
+#' a single growth curve will be fit to the whole dataset.
+#' @params model The growth model(s) to fit.
+#' @params errors The error model to use
+#' @params mod.dir Optional: Path to a directory where the BUGS model file will be written for inspection. If not specified
+#' a temporary directory will be created.
+#' @params n.iter,n.burnin,n.thin The total number of MCMC iteractions to run, the number of burn in iterations and the sample
+#' thinning rate, respectively.
+#' @params inits A list or function generating initial values for the 3 MCMC chains.
+#' @params ncores If ncores > 1 and number of models specified is also >1, models will be run in parallel.
+
+grow_bayes = function(size,age,group=NULL,model = c('VB','logistic','Gompertz','Richards','cessation','VBlogK'),
+                      errors = c('normal','lognormal'),mod.dir=NULL,n.iter=25000,n.thin=20,n.burnin=5000,inits=NULL,ncores=1){
   
   if(!is.null(group)){ 
     group = as.factor(group)
@@ -193,6 +209,9 @@ fit_gm = function(data,model,errors,mod.dir,n.iter=25000,n.thin=20,n.burnin=5000
 # Predict method
 # ----------------------------------------------------------------------------------------------------------------------------------
 
+# A predict method for objects of class `grow_bayes`. If newdata is not specified, size will be predicted at 1000 regularly spaced intervals
+# between the minimum and maximum of age in the original data
+                                     
 predict.grow_bayes = function(model,newdata=NULL,plot=T){
   
   data = model$model$data()
@@ -262,6 +281,8 @@ predict.grow_bayes = function(model,newdata=NULL,plot=T){
 # summary method
 # ------------------------------------------------------------                                   
 
+# Summary method for objects returned by `grow_bayes`
+                                     
 summary.grow_bayes =  function(jags.model){
   
   as.data.frame(jags.model$BUGSoutput$summary) %>% 
@@ -274,6 +295,8 @@ summary.grow_bayes =  function(jags.model){
 # Deviance Information Criterion Method
 # ------------------------------------------------------------
 
+# Extracts DIC from a fitted JAGS model.                                     
+                                     
 DIC = function(model){
   
   if(!inherits(model,'rjags')) stop("model should be an object of class rjags")
@@ -282,7 +305,7 @@ DIC = function(model){
 }
 
 # --------------------------------------------------------------------
-# Extract multiple scale reduction factor as a convergence diagnostic
+# Extract multiple potential scale reduction factor as a convergence diagnostic
 # --------------------------------------------------------------------
 
 MPSRF = function(model){
@@ -293,7 +316,7 @@ MPSRF = function(model){
 }
 
 # ------------------------------------------------------------
-# Root mean square error/sum of squares
+# Extract root mean square error/sum of squares from grow_bayes object
 # ------------------------------------------------------------
 
 RMSE = function(model,type = c('RMSE','SS')){
@@ -309,7 +332,7 @@ RMSE = function(model,type = c('RMSE','SS')){
                                      
 
 # -------------------------------------------------------------------------------------------------                                     
-# Growth model equations
+# Growth model functions
 # -------------------------------------------------------------------------------------------------                                    
 
 # To make functions readable in BUGS format
@@ -332,7 +355,7 @@ VBlogK    = function(age,Linf,k1,k2,t0,alpha,beta){
 }
   
 # -------------------------------------------------------------------------------------------------                                     
-# Converting functions into BUGS language to run
+# Converting growth model functions into BUGS language to run
 # -------------------------------------------------------------------------------------------------                                          
 
 fun2jags = function(fun){
@@ -348,7 +371,7 @@ fun2jags = function(fun){
                                                                       
 
 # -------------------------------------------------------------------------------------------------                                     
-# An implementation of the Farley decimal age correction algorithm
+# An implementation of the Farley et al. 2020 decimal age correction algorithm
 # -------------------------------------------------------------------------------------------------                                      
 
 # x is a dataframe where each row is an individual and columns are measurements from the primordium to 
@@ -377,7 +400,7 @@ decimal_age = function(x,method = 'Farley'){
 }
                                                                           
 # ------------------------------------------------------------------------------------------
-# IAPE
+# Function to calculate the Index of Average Percentage Error
 # ------------------------------------------------------------------------------------------
                                      
 IAPE = function(x){
