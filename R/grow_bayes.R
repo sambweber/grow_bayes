@@ -290,6 +290,32 @@ summary.grow_bayes =  function(jags.model){
     dplyr::select(parameter,mean,median=`50%`,lcl=`2.5%`,ucl=`97.5%`)
   
 }
+                                     
+# ------------------------------------------------------------
+# plot method
+# ------------------------------------------------------------                                   
+
+# Plot method for objects returned by `grow_bayes`
+                                     
+ plot.grow_bayes = function(model){
+
+ data = model$model$data()
+ data = data.frame(age=data$age,length=data$length,group=data$group) 
+ 
+ pred = predict(model)
+  
+if(length(unique(pred$group))>1){
+    pl= ggplot(pred,aes(x=age,y=length,colour=group,fill=group)) 
+} else {pl = ggplot(pred,aes(x=age,y=length))}
+
+data$group = factor(data$group)
+pl = pl + geom_point(data=data,shape=16) + 
+     geom_ribbon(aes(ymin=lower,ymax=upper),alpha=.1,colour='transparent') +
+     geom_line()
+
+return(pl)
+
+}
 
 # ------------------------------------------------------------
 # Deviance Information Criterion Method
