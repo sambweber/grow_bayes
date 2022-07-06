@@ -379,6 +379,17 @@ VBlogK    = function(age,Linf,k1,k2,t0,alpha,beta){
  Richards.logK    = function(age,Linf,k1,k2,t0,alpha,beta,d){                                  
   Linf*(1 - exp(-k2*(age - t0)) * pow(pow((1+1/d*exp(-beta*(age-t0-alpha))),d)/(1+exp(beta*alpha)),(k1-k2)/beta))
 }
+
+# The two stage von-Bertalanffy from Farley et al. 2021                                     
+                                     
+VB2  =  function(age,Linf,k1,k2,t0,alpha,gamma){
+  
+  ((age<=alpha)*gamma + (age>alpha)*1)*
+    Linf*(1 - exp(-(k1*(age<=alpha) + k2*(age>alpha))*(age-t0-
+                  ((age>alpha) * (alpha+1/k2*log(1-gamma*(1-exp(-k1*alpha))))))))
+                                                 
+}
+
   
 # -------------------------------------------------------------------------------------------------                                     
 # Converting growth model functions into BUGS language to run
